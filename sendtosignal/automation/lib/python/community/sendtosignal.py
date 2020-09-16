@@ -15,17 +15,8 @@ from core.log import logging, LOG_PREFIX, log_traceback
 import subprocess
 import shlex
 import ConfigParser as configparser
-from configuration import InstallPath
-    
+from configuration import signalconf, signal_secret_path
 
-@log_traceback
-def getdest(dest,log=logging.getLogger("{}.send_to_signal".format(LOG_PREFIX))):
-    parser = configparser.ConfigParser()
-    parser.read(InstallPath+'/services/signal-cli.cfg')
-    dest_dict = {section: dict(parser.items(section)) for section in parser.sections()}
-    log.debug(dest_dict)
-    destnb=dest_dict['signal-cli'][dest]
-    return destnb
 
 @log_traceback
 def send_to_signal(message,dest,log=logging.getLogger("{}.send_to_signal".format(LOG_PREFIX))):
@@ -35,30 +26,44 @@ def send_to_signal(message,dest,log=logging.getLogger("{}.send_to_signal".format
     Send message to signal via signal-cli
     requires installation and configuration 
     of signal-cli before use
+    signal secret path is stored in configuration.py
+    with string signal_secret_path:
+    signal_secret_path='path_to_secret' (ex:'/var/lib/signal-cli')
     https://community.openhab.org/t/setup-open-whisper-systems-signal-messenger-for-use-with-oh2-via-scripts/38103
 
-
-    requires openhab2 install path in configuration.py:
-    InstallPath = "/etc/openhab2"
 
     message is a string
     dest is a string
     
-    dest are configured through config file in services folder
+    dest are configured through dictionnary in
+    configuration.py signalconf
     format is:
-    [signal-cli]
-    dest=phonenb
-    dest2=-g groupID
+    signalconf= {'name1': '+1xxxxxxxx',
+            'name2': '+1xxxxxxx',
+            'groupname': '-g groupID'}
     """
 
-
-    destnb = getdest(dest)
-    log.debug(destnb)
-    cmd='/usr/local/bin/signal-cli --config /var/lib/signal-cli -u +393465804890 send -m "' + message + '" ' + destnb
+    try:
+        destnb = signalconf[dest]
+        log.debug(destnb)
+    except:
+        log.warn("Destinary not found in configuration.py signalconf")
+        exit(1)
+    cmd=('/usr/local/bin/signal-cli --config '+ 
+                signal_secret_path + ' -u +393465804890 send -m "' + 
+                message + '" ' + destnb)
     log.debug(cmd)
     try:
-        process = subprocess.call(shlex.split(cmd))
-        log.info("message sent to: "+ dest + " Content: " + message)
+        output = subprocess.check_output(shlex.split(cmd))
+        log.debug(':'+str(output)+':')
+        output=''.join(e for e in str(output) if e.isalnum())
+        if output.isdigit():
+            log.info("message sent to: "+ dest + " Content: " + message)
+        else:
+            log.warn("message could not be sent to: "+ dest + 
+                " Content: " + message +
+                "\n  Check /var/lib/signal-cli is setup and accessible")
+
     except:
         log.warn("message could not be sent to: "+ dest + 
                 " Content: " + message +
