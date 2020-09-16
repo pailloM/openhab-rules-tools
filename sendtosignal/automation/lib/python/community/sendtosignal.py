@@ -14,7 +14,6 @@ limitations under the License.
 from core.log import logging, LOG_PREFIX, log_traceback
 import subprocess
 import shlex
-import ConfigParser as configparser
 from configuration import signalconf, signal_secret_path
 
 
