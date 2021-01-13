@@ -13,12 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 from core.jsr223.scope import events
-from org.joda.time import DateTime
 from community.time_utils import to_datetime
 from community.timer_mgr import TimerMgr
+from java.time import ZonedDateTime
 
 timers = TimerMgr()
+
 
 def timer_body(target, value, is_command, time, log):
     """
@@ -38,6 +40,7 @@ def timer_body(target, value, is_command, time, log):
         events.sendCommand(target, str(value))
     else:
         events.postUpdate(target, str(value))
+
 
 def defer(target, value, when, log, is_command=True):
     """
@@ -60,15 +63,16 @@ def defer(target, value, when, log, is_command=True):
                   .format(when))
 
     # If trigger_time is in the past, schedule for now
-    if trigger_time.isBefore(DateTime.now()):
-        trigger_time = DateTime.now()
+    if trigger_time.isBefore(ZonedDateTime.now()):
+        trigger_time = ZonedDateTime.now()
 
     # Schedule the timer
-    func = lambda: timer_body(target, value, is_command, when, log)
-    flap = lambda: log.debug("there is already a timer set for {}, rescheduling"
-                             .format(target))
+    def func(): return timer_body(target, value, is_command, when, log)
+    def flap(): return log.debug("there is already a timer set for {}, rescheduling"
+                                 .format(target))
     timers.check(target, trigger_time, function=func, flapping_function=flap,
                  reschedule=True)
+
 
 def cancel(target):
     """
@@ -77,6 +81,7 @@ def cancel(target):
         - target: the Item name whose timer is to be cancelled
     """
     timers.cancel(target)
+
 
 def cancel_all():
     """
